@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"os"
+
+	"github.com/mattermost/mattermost-server/v5/model"
 )
 
 type LogLevel int64
@@ -55,4 +57,11 @@ func (l Logger) Info(msg string) {
 
 func (l Logger) Error(msg string) {
 	l.ErrorLogger.Println(msg)
+}
+
+func (l Logger) PrintError(err *model.AppError) {
+	l.ErrorLogger.Println("\tError Details:")
+	l.ErrorLogger.Println("\t\t" + err.Message)
+	l.ErrorLogger.Println("\t\t" + err.Id)
+	l.ErrorLogger.Println("\t\t" + err.DetailedError)
 }
