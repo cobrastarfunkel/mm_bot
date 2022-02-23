@@ -10,11 +10,12 @@ import (
 )
 
 type MMBot struct {
-	botUser  *model.User
-	botName  string
-	botTeam  *model.Team
-	teamName string
-	conn     *Conn
+	botUser          *model.User
+	botName          string
+	botTeam          *model.Team
+	teamName         string
+	conn             *Conn
+	debuggingChannel *model.Channel
 }
 
 func (b *MMBot) SetupBot() {
@@ -79,14 +80,14 @@ func (b MMBot) HandleMsg(event *model.WebSocketEvent) {
 	b.conn.SendMsg("I did not understand you!", post.Id, event.Broadcast.ChannelId)
 }
 
-func (b MMBot) CreateBotDebuggingChannelIfNeeded(channelName string) {
+func (b *MMBot) CreateBotDebuggingChannelIfNeeded(channelName string) {
 	botTeamId := b.botTeam.Id
 
 	if rchannel, resp := b.conn.client.GetChannelByName(channelName, botTeamId, ""); resp.Error != nil {
 		logger.Error("We failed to get the channels")
 		logger.PrintError(resp.Error)
 	} else {
-		debuggingChannel = rchannel
+		b.debuggingChannel = rchannel
 		return
 	}
 
@@ -102,7 +103,7 @@ func (b MMBot) CreateBotDebuggingChannelIfNeeded(channelName string) {
 		logger.Error("We failed to create the channel " + channelName)
 		logger.PrintError(resp.Error)
 	} else {
-		debuggingChannel = rchannel
+		b.debuggingChannel = rchannel
 		logger.Error("Looks like this might be the first run so we've created the channel " + channelName)
 	}
 }
@@ -130,8 +131,11 @@ func (b *MMBot) StartWebsocketListening() {
 func (b *MMBot) init() {
 	b.SetupBot()
 	b.FindBotTeam()
+
 	b.CreateBotDebuggingChannelIfNeeded("debugging-for-sample-bot")
-	b.conn.SendMsg("_"+BOTNAME+" has **started** running_", "", debuggingChannel.Id)
+	b.conn.SetupGracefulShutdown(b.debuggingChannel.Id, b.botName)
+
+	b.conn.SendMsg("_"+b.botName+" has **started** running_", "", b.debuggingChannel.Id)
 
 	b.StartWebsocketListening()
 }

@@ -14,7 +14,7 @@ type Conn struct {
 
 // Documentation for the Go driver can be found
 // at https://godoc.org/github.com/mattermost/platform/model#Client
-func (conn *Conn) SetupGracefulShutdown() {
+func (conn *Conn) SetupGracefulShutdown(debuggingChannelId, botName string) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
@@ -23,7 +23,7 @@ func (conn *Conn) SetupGracefulShutdown() {
 				conn.webSocketClient.Close()
 			}
 
-			conn.SendMsg("_"+BOTNAME+" has **stopped** running_", "", debuggingChannel.Id)
+			conn.SendMsg("_"+botName+" has **stopped** running_", "", debuggingChannelId)
 			os.Exit(0)
 		}
 	}()
@@ -59,7 +59,6 @@ func (conn Conn) SendMsg(msg string, replyToId string, channelId string) {
 }
 
 func (c *Conn) init() {
-	c.SetupGracefulShutdown()
 	c.SetupClient()
 
 	// Lets test to see if the mattermost server is up and running
