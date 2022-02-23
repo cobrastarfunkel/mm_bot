@@ -1,11 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
-	"strings"
 
 	"github.com/mattermost/mattermost-server/v5/model"
 )
@@ -48,31 +45,6 @@ func (conn Conn) MakeSureServerIsRunning() {
 	}
 }
 
-func (conn Conn) CreateBotDebuggingChannelIfNeeded(channelName string, botTeamId string) {
-	if rchannel, resp := conn.client.GetChannelByName(channelName, botTeamId, ""); resp.Error != nil {
-		logger.Error("We failed to get the channels")
-		logger.PrintError(resp.Error)
-	} else {
-		debuggingChannel = rchannel
-		return
-	}
-
-	// Looks like we need to create the logging channel
-	channel := &model.Channel{}
-	channel.Name = channelName
-	channel.DisplayName = "Debugging For Sample Bot"
-	channel.Purpose = "This is used as a test channel for logging bot debug messages"
-	channel.Type = model.CHANNEL_OPEN
-	channel.TeamId = botTeamId
-	if rchannel, resp := conn.client.CreateChannel(channel); resp.Error != nil {
-		logger.Error("We failed to create the channel " + channelName)
-		logger.PrintError(resp.Error)
-	} else {
-		debuggingChannel = rchannel
-		logger.Error("Looks like this might be the first run so we've created the channel " + channelName)
-	}
-}
-
 func (conn Conn) SendMsg(msg string, replyToId string, channelId string) {
 	post := &model.Post{}
 	post.ChannelId = channelId
@@ -84,66 +56,6 @@ func (conn Conn) SendMsg(msg string, replyToId string, channelId string) {
 		logger.Error("We failed to send a message to the logging channel")
 		logger.PrintError(resp.Error)
 	}
-}
-
-func (conn Conn) HandleMsg(event *model.WebSocketEvent, b MMBot) {
-	// Lets only reponded to messaged posted events
-	if event.Event != model.WEBSOCKET_EVENT_POSTED {
-		return
-	}
-
-	post := model.PostFromJson(strings.NewReader(event.Data["post"].(string)))
-
-	if post != nil {
-		logger.Debug(fmt.Sprintf("Post ID: %s Bot Id: %s", post.UserId, b.botUser.Id))
-		message := strings.ToLower(post.Message)
-
-		if !strings.Contains(message, "@"+b.botUser.Username) {
-			return
-		}
-
-		// ignore my events
-		if post.UserId == b.botUser.Id {
-			return
-		}
-
-		chn, _ := conn.client.GetChannel(event.Broadcast.ChannelId, "")
-		logger.Debug(fmt.Sprintf("responding to %s channel msg", chn.Name))
-
-		// if you see any word matching 'alive' then respond
-		if matched, _ := regexp.MatchString(`(?:^|\W)(alive|up|running)(?:$|\W)`, message); matched {
-			conn.SendMsg("Yes I'm running", post.Id, event.Broadcast.ChannelId)
-			return
-		}
-
-		// if you see any word matching 'hello' then respond
-		if matched, _ := regexp.MatchString(`(?:^|\W)hello|hi(?:$|\W)`, message); matched {
-			conn.SendMsg("Hi!", post.Id, event.Broadcast.ChannelId)
-			return
-		}
-	}
-
-	conn.SendMsg("I did not understand you!", post.Id, event.Broadcast.ChannelId)
-}
-
-func (conn *Conn) StartWebsocketListening(b MMBot) {
-	// Lets start listening to some channels via the websocket!
-	webSocketClient, err := model.NewWebSocketClient4(WSURI, conn.client.AuthToken)
-	if err != nil {
-		logger.Error("We failed to connect to the web socket")
-		logger.PrintError(err)
-	}
-	conn.webSocketClient = webSocketClient
-	conn.webSocketClient.Listen()
-
-	go func() {
-		for resp := range conn.webSocketClient.EventChannel {
-			conn.HandleMsg(resp, b)
-		}
-	}()
-
-	// You can block forever with
-	select {}
 }
 
 func (c *Conn) init() {

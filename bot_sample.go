@@ -24,15 +24,11 @@ func main() {
 	c := Conn{}
 	c.init()
 
-	b := MMBot{botName: BOTNAME, teamName: "botsample"}
+	b := MMBot{botName: BOTNAME, teamName: "botsample", conn: &c}
 	// Lets find our bot team
-	b.init(*c.client)
+	b.init()
 
 	logger.Debug(fmt.Sprintf("Client: %v", c.client))
 	logger.Debug(fmt.Sprintf("Bot: %v", b))
 	// Lets create a bot channel for logging debug messages into
-	c.CreateBotDebuggingChannelIfNeeded("debugging-for-sample-bot", b.botTeam.Id)
-	c.SendMsg("_"+BOTNAME+" has **started** running_", "", debuggingChannel.Id)
-
-	c.StartWebsocketListening(b)
 }
